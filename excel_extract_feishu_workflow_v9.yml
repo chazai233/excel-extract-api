@@ -1,0 +1,436 @@
+app:
+  description: 当用户上传Excel文件时，调用外部API服务提取数据，通过飞书发送给指定用户。
+  icon: "\U0001F4CA"
+  icon_background: "#E4FBCC"
+  mode: workflow
+  name: Excel数据提取与飞书发送
+  use_icon_as_answer_icon: false
+kind: app
+version: 0.1.2
+workflow:
+  conversation_variables: []
+  environment_variables: []
+  features:
+    file_upload:
+      image:
+        enabled: false
+        number_limits: 3
+        transfer_methods:
+        - local_file
+        - remote_url
+      enabled: true
+      allowed_file_types:
+      - document
+      allowed_file_extensions:
+      - ".xls"
+      - ".xlsx"
+      allowed_file_upload_methods:
+      - local_file
+      - remote_url
+      number_limits: 1
+    opening_statement: ""
+    retriever_resource:
+      enabled: false
+    sensitive_word_avoidance:
+      enabled: false
+    speech_to_text:
+      enabled: false
+    suggested_questions: []
+    suggested_questions_after_answer:
+      enabled: false
+    text_to_speech:
+      enabled: false
+      language: ""
+      voice: ""
+  graph:
+    edges:
+    - data:
+        isInIteration: false
+        sourceType: start
+        targetType: code
+      id: start-download
+      source: "1734355200000"
+      sourceHandle: source
+      target: "1734355200006"
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        sourceType: code
+        targetType: http-request
+      id: download-extract
+      source: "1734355200006"
+      sourceHandle: source
+      target: "1734355200001"
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        sourceType: http-request
+        targetType: if-else
+      id: extract-check
+      source: "1734355200001"
+      sourceHandle: source
+      target: "1734355200002"
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        sourceType: if-else
+        targetType: http-request
+      id: check-send
+      source: "1734355200002"
+      sourceHandle: "true"
+      target: "1734355200003"
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        sourceType: if-else
+        targetType: end
+      id: check-fail
+      source: "1734355200002"
+      sourceHandle: "false"
+      target: "1734355200005"
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        sourceType: http-request
+        targetType: end
+      id: send-end
+      source: "1734355200003"
+      sourceHandle: source
+      target: "1734355200004"
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    nodes:
+    - data:
+        desc: 工作流开始，接收用户上传的Excel文件
+        selected: false
+        title: 开始
+        type: start
+        variables:
+        - allowed_file_extensions:
+          - ".xls"
+          - ".xlsx"
+          allowed_file_types:
+          - document
+          allowed_file_upload_methods:
+          - local_file
+          - remote_url
+          label: Excel文件
+          max_length: 48
+          options: []
+          required: true
+          type: file
+          variable: excel_file
+        - label: 飞书Webhook地址
+          max_length: 500
+          options: []
+          required: false
+          type: text-input
+          variable: webhook_url
+        - label: Excel处理服务地址
+          max_length: 200
+          options: []
+          required: false
+          type: text-input
+          variable: api_url
+          default: "http://host.docker.internal:8100"
+      height: 118
+      id: "1734355200000"
+      position:
+        x: 80
+        y: 282
+      positionAbsolute:
+        x: 80
+        y: 282
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 244
+    - data:
+        code: |
+          import requests
+          import base64
+
+          def main(file_url: str) -> dict:
+              """
+              下载文件并转换为base64
+              使用Dify Sandbox支持的requests库
+              """
+              try:
+                  if not file_url:
+                      return {
+                          "success": "False",
+                          "file_base64": "",
+                          "message": "文件URL为空"
+                      }
+                  
+                  # 下载文件
+                  response = requests.get(file_url, timeout=60)
+                  if response.status_code != 200:
+                      return {
+                          "success": "False",
+                          "file_base64": "",
+                          "message": f"下载失败: HTTP {response.status_code}"
+                      }
+                  
+                  # 转换为base64
+                  file_base64 = base64.b64encode(response.content).decode('utf-8')
+                  
+                  return {
+                      "success": "True",
+                      "file_base64": file_base64,
+                      "message": f"文件下载成功, 大小: {len(response.content)} 字节"
+                  }
+                  
+              except Exception as e:
+                  return {
+                      "success": "False",
+                      "file_base64": "",
+                      "message": f"下载文件失败: {str(e)}"
+                  }
+        code_language: python3
+        desc: 下载文件并转换为base64
+        outputs:
+          success:
+            children: null
+            type: string
+          file_base64:
+            children: null
+            type: string
+          message:
+            children: null
+            type: string
+        selected: false
+        title: 下载文件
+        type: code
+        variables:
+        - value_selector:
+          - "1734355200000"
+          - excel_file
+          - url
+          variable: file_url
+      height: 54
+      id: "1734355200006"
+      position:
+        x: 384
+        y: 282
+      positionAbsolute:
+        x: 384
+        y: 282
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 244
+    - data:
+        authorization:
+          type: no-auth
+          config: null
+        body:
+          type: json
+          data: |
+            {
+              "file_base64": "{{#1734355200006.file_base64#}}"
+            }
+        desc: 调用外部FastAPI服务提取Excel数据
+        headers: "Content-Type: application/json"
+        params: ""
+        method: post
+        selected: false
+        timeout:
+          connect: 30
+          read: 120
+          write: 30
+        title: 调用Excel提取API
+        type: http-request
+        url: "{{#1734355200000.api_url#}}/extract"
+      height: 54
+      id: "1734355200001"
+      position:
+        x: 688
+        y: 282
+      positionAbsolute:
+        x: 688
+        y: 282
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 244
+    - data:
+        cases:
+        - case_id: "true"
+          conditions:
+          - comparison_operator: is
+            id: cond1
+            value: "true"
+            varType: string
+            variable_selector:
+            - "1734355200001"
+            - body
+            - success
+          id: case_true
+          logical_operator: and
+        desc: 检查API调用是否成功
+        selected: false
+        title: 检查提取结果
+        type: if-else
+      height: 126
+      id: "1734355200002"
+      position:
+        x: 992
+        y: 282
+      positionAbsolute:
+        x: 992
+        y: 282
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 244
+    - data:
+        authorization:
+          type: no-auth
+          config: null
+        body:
+          type: json
+          data: |-
+            {
+              "msg_type": "interactive",
+              "card": {
+                "config": {"wide_screen_mode": true},
+                "header": {
+                  "title": {"tag": "plain_text", "content": "📊 Excel数据提取完成"},
+                  "template": "green"
+                },
+                "elements": [
+                  {
+                    "tag": "div",
+                    "text": {
+                      "tag": "lark_md",
+                      "content": "**提取结果：**\n- 格式类型：{{#1734355200001.body.format_type#}}\n- 提取行数：{{#1734355200001.body.row_count#}} 行\n- 文件名：{{#1734355200001.body.filename#}}"
+                    }
+                  },
+                  {"tag": "hr"},
+                  {
+                    "tag": "note",
+                    "elements": [{"tag": "plain_text", "content": "{{#1734355200001.body.message#}}"}]
+                  }
+                ]
+              }
+            }
+        desc: 发送飞书消息通知
+        headers: "Content-Type: application/json"
+        params: ""
+        method: post
+        selected: false
+        timeout:
+          connect: 10
+          read: 60
+          write: 20
+        title: 发送飞书消息
+        type: http-request
+        url: "{{#1734355200000.webhook_url#}}"
+      height: 54
+      id: "1734355200003"
+      position:
+        x: 1296
+        y: 232
+      positionAbsolute:
+        x: 1296
+        y: 232
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 244
+    - data:
+        desc: 处理成功结束
+        outputs:
+        - value_selector:
+          - "1734355200001"
+          - body
+          - success
+          variable: success
+        - value_selector:
+          - "1734355200001"
+          - body
+          - format_type
+          variable: format_type
+        - value_selector:
+          - "1734355200001"
+          - body
+          - row_count
+          variable: row_count
+        - value_selector:
+          - "1734355200001"
+          - body
+          - filename
+          variable: filename
+        - value_selector:
+          - "1734355200001"
+          - body
+          - message
+          variable: message
+        - value_selector:
+          - "1734355200001"
+          - body
+          - file_base64
+          variable: file_base64
+        selected: false
+        title: 成功结束
+        type: end
+      height: 90
+      id: "1734355200004"
+      position:
+        x: 1600
+        y: 232
+      positionAbsolute:
+        x: 1600
+        y: 232
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 244
+    - data:
+        desc: 处理失败结束
+        outputs:
+        - value_selector:
+          - "1734355200001"
+          - body
+          - success
+          variable: success
+        - value_selector:
+          - "1734355200001"
+          - body
+          - message
+          variable: error_message
+        selected: false
+        title: 失败结束
+        type: end
+      height: 90
+      id: "1734355200005"
+      position:
+        x: 1296
+        y: 382
+      positionAbsolute:
+        x: 1296
+        y: 382
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 244
+  hash: ""

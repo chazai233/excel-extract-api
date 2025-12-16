@@ -1,0 +1,32 @@
+# Excel files
+*.xls
+*.xlsx
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+env/
+venv/
+.venv/
+*.egg-info/
+dist/
+build/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Temp files
+temp_*.txt
+*.log
+
+# Dify workflow versions (keep only latest)
+excel_extract_feishu_workflow_v[1-8].yml
+
+# System
+.DS_Store
+Thumbs.db
